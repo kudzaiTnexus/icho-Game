@@ -8,5 +8,5 @@
 import Foundation
 
 enum Status: Equatable {
-    case normal, player, exitPoint, monster
+    case normal, player, exitPoint, monster, dead
 }

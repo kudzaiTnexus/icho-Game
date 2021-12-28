@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-class GameViewModel: ObservableObject {
+final class GameViewModel: ObservableObject {
     
     @Published var settings: Settings
     
@@ -60,6 +60,8 @@ class GameViewModel: ObservableObject {
         self.objectWillChange.send()
     }
     
+    // MARK: Components moves
+    
     func playerMove(in direction: Direction) {
         
         playerDirection = direction
@@ -77,19 +79,22 @@ class GameViewModel: ObservableObject {
         }
     }
     
-    func isAllowedMove(to selectedPoint: Point2D) -> Bool {
+    private func isAllowedMove(to selectedPoint: Point2D) -> Bool {
         guard let currentPosition = playerPositions.last else {
             return false
         }
         
-        let isNotDiagonal = (currentPosition.x - selectedPoint.x).magnitude == (currentPosition.y - selectedPoint.y).magnitude ? false : true
-        
         let isSingleMove = (selectedPoint.x - currentPosition.x).magnitude < 2 && (selectedPoint.y - currentPosition.y).magnitude < 2
         
-        return isNotDiagonal && isSingleMove
+        return !isDiagonal(from: currentPosition, to: selectedPoint) &&
+        isSingleMove
     }
     
-    func moveComponents() {
+    private func isDiagonal(from startPoint: Point2D, to endPoint: Point2D) -> Bool {
+        return (startPoint.x - endPoint.x).magnitude == (startPoint.y - endPoint.y).magnitude
+    }
+    
+    private func moveComponents() {
         
         guard let currentPosition = playerPositions.last else {
             return
@@ -104,16 +109,24 @@ class GameViewModel: ObservableObject {
         }
         
         monsterPositions.forEach { monster in
-            var moveDirection = aStarSearchNextBestMoveDirection(for: monster, with: playerPositions[playerPositions.count - 1])
-         
-           // If both direction and distances are the same, choose one randomly for the monster
-            if moveDirection == playerDirection {
-                let distanceToPlayer = manhattanDistance(from: monster, to: (playerPositions[playerPositions.count - 2]))
+            var moveDirection = direction(from: monster,
+                                  to:  aStarShortestPath(from: monster, to: playerPositions[playerPositions.count - 1])?.first ?? monster)
+            
+            // If both direction and distances are the same, choose one randomly for the monster
+            let latestPlayerPosition = playerPositions.last ?? Point2D(x: 0, y: 0)
+            if isDiagonal(from: monster, to: latestPlayerPosition) {
                 
-                if distanceToPlayer == 1 {
-                    moveDirection = [.down, .up, .left, .right].randomElement() ?? moveDirection
+                if (monster.y - latestPlayerPosition.y) >= 0 && (monster.x - latestPlayerPosition.x) < 0 {
+                    moveDirection =   [.up, .right].randomElement() ?? moveDirection
+                } else if (monster.y - latestPlayerPosition.y) >= 0 && (monster.x - latestPlayerPosition.x) >= 0 {
+                    moveDirection =   [.up, .left].randomElement() ?? moveDirection
+                } else if (monster.y - latestPlayerPosition.y) < 0 && (monster.x - latestPlayerPosition.x) < 0 {
+                    moveDirection =   [.down, .right].randomElement() ?? moveDirection
+                } else if (monster.y - latestPlayerPosition.y) < 0 && (monster.x - latestPlayerPosition.x) >= 0 {
+                    moveDirection =   [.down, .left].randomElement() ?? moveDirection
                 }
             }
+            
             movePieceInDirection(moveDirection, piece: monster)
         }
         
@@ -126,7 +139,7 @@ class GameViewModel: ObservableObject {
             // kill all duplicate monsters
             monsterPositions.forEach { aliveMonster in
                 if duplicates.contains(aliveMonster) {
-                    board[aliveMonster.x][aliveMonster.y].status = .normal
+                    board[aliveMonster.x][aliveMonster.y].status = .dead
                 }
             }
             
@@ -143,6 +156,8 @@ class GameViewModel: ObservableObject {
         isWon = false
         isGameOver = false
     }
+    
+    // MARK: Board Setup
     
     private static func board(from settings: Settings) -> [[GridItem]] {
         var newBoard = [[GridItem]]()
@@ -188,7 +203,7 @@ class GameViewModel: ObservableObject {
         
         var numberOfMonstersPlaced = 0
         while numberOfMonstersPlaced < settings.numberOfMonsters {
-            // Generate a random number that will fall somewhere in our board
+
             let randomRow = Int.random(in: 0..<settings.gameWorldNumberOfRows)
             let randomCol = Int.random(in: 0..<settings.gameWolrdNumberOfColumns)
             
@@ -199,8 +214,6 @@ class GameViewModel: ObservableObject {
                 numberOfMonstersPlaced += 1
             }
         }
-        
-        print("monsters: \(monsterPositions)")
     }
     
     private static func randomPoint(from gridSize: (row: Int, column: Int),
@@ -251,7 +264,9 @@ class GameViewModel: ObservableObject {
         return allpointsInGrid.randomElement()
     }
     
-    func movePieceInDirection(_ direction: Direction, piece: Point2D) {
+    // MARK: Direction
+    
+    private func movePieceInDirection(_ direction: Direction, piece: Point2D) {
         
         guard let monsterPreviousIndex = monsterPositions.firstIndex(where: { $0 == piece }) else {
             return
@@ -304,7 +319,7 @@ class GameViewModel: ObservableObject {
         }
     }
     
-    func pointDirection(from startingPoint: Point2D, to destinationPoint: Point2D) -> Direction {
+    private func direction(from startingPoint: Point2D, to destinationPoint: Point2D) -> Direction {
         if destinationPoint == Point2D(x: startingPoint.x - 1 , y: startingPoint.y) {
             return .up
         } else if destinationPoint == Point2D(x: startingPoint.x + 1 , y: startingPoint.y) {
@@ -318,13 +333,9 @@ class GameViewModel: ObservableObject {
         return .none
     }
     
-    func aStarSearchNextBestMoveDirection(for start: Point2D,
-                                          with goal: Point2D) -> Direction {
-        return pointDirection(from: start,
-                              to:  AstarShortestPath(from: start, to: goal)?.first ?? start)
-    }
+    // MARK: A* Shortest path algorithm
     
-    func AstarShortestPath(from: Point2D, to: Point2D) -> [Point2D]? {
+    private func aStarShortestPath(from: Point2D, to: Point2D) -> [Point2D]? {
         
         var closedSteps = Set<AstarStep>()
         var openSteps = [AstarStep(position: from)]
@@ -345,7 +356,7 @@ class GameViewModel: ObservableObject {
                 
                 if closedSteps.contains(step) { continue }
                 
-                let moveCost = costToMove(from: currentStep.position, to: step.position)
+                let moveCost = 1
                 
                 if let existingIndex = openSteps.firstIndex(of: step) {
                     let step = openSteps[existingIndex]
@@ -365,10 +376,6 @@ class GameViewModel: ObservableObject {
         }
         
         return nil
-    }
-    
-    func costToMove(from: Point2D, to: Point2D) -> Int {
-        return 1
     }
     
     private func convertStepsToShortestPath(lastStep: AstarStep) -> [Point2D] {
@@ -403,8 +410,6 @@ class GameViewModel: ObservableObject {
             ($0 != playerPositions.last! || $0 != finishPosition) &&
             ($0.x >= 0 && $0.y >= 0)
         })
-        
-        print("[apo] walkableTiles: \(walkableTiles)")
         
         return walkableTiles
     }

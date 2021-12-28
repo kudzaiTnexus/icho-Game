@@ -26,7 +26,7 @@ struct GridItemView: View {
             .frame(width: gameViewModel.settings.squareSize,
                    height: gameViewModel.settings.squareSize,
                    alignment: .center)
-           // .overlay(Text("\(gridItem.row),\(gridItem.column)").font(.caption2))
+           // .overlay(Text("\(gridItem.row),\(gridItem.column)").font(.caption2)) // remove comment to see coordinates
             .onTapGesture {
                 gameViewModel.click(on: gridItem)
             }

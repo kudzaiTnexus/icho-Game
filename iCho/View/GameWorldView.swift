@@ -92,6 +92,8 @@ struct GameWorldView: View {
                     gameViewModel.playerMove(in: direction)
                 }
                
+            }.onAppear {
+                selectedMonsterIndex = [0,1,2,3,4].randomElement() ?? 0
             }
             
             Spacer()

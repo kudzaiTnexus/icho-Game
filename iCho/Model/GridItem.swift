@@ -26,6 +26,8 @@ class GridItem: ObservableObject {
             return "player-1"
         case .exitPoint:
             return "flag"
+        case .dead:
+            return "explode"
         }
     }
 
