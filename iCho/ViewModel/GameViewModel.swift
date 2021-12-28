@@ -47,6 +47,7 @@ final class GameViewModel: ObservableObject {
             isGameOver = true
             return
         } else if gridItem.status == .exitPoint {
+            // If the player shares the same grid space as the exit, the player wins
             isWon = true
             isGameOver = true
             showResult = true
@@ -79,6 +80,7 @@ final class GameViewModel: ObservableObject {
         }
     }
     
+    // Player can move up/down and left/right one 'tile' each turn, but not diagonally
     private func isAllowedMove(to selectedPoint: Point2D) -> Bool {
         guard let currentPosition = playerPositions.last else {
             return false
@@ -94,6 +96,8 @@ final class GameViewModel: ObservableObject {
         return (startPoint.x - endPoint.x).magnitude == (startPoint.y - endPoint.y).magnitude
     }
     
+    // Whenever the player moves, all the monsters will move in the closest direction of
+    // the player
     private func moveComponents() {
         
         guard let currentPosition = playerPositions.last else {
@@ -110,26 +114,30 @@ final class GameViewModel: ObservableObject {
         
         monsterPositions.forEach { monster in
             var moveDirection = direction(from: monster,
-                                  to:  aStarShortestPath(from: monster, to: playerPositions[playerPositions.count - 1])?.first ?? monster)
+                                  to:  aStarShortestPath(from: monster,
+                                                         to: playerPositions[playerPositions.count - 1])?.first ?? monster)
+            
+            
+            let latestPlayerPosition = playerPositions.last ?? Point2D(x: 0, y: 0)
             
             // If both direction and distances are the same, choose one randomly for the monster
-            let latestPlayerPosition = playerPositions.last ?? Point2D(x: 0, y: 0)
             if isDiagonal(from: monster, to: latestPlayerPosition) {
                 
                 if (monster.y - latestPlayerPosition.y) >= 0 && (monster.x - latestPlayerPosition.x) < 0 {
-                    moveDirection =   [.up, .right].randomElement() ?? moveDirection
+                    moveDirection =  [.up, .right].randomElement() ?? moveDirection
                 } else if (monster.y - latestPlayerPosition.y) >= 0 && (monster.x - latestPlayerPosition.x) >= 0 {
                     moveDirection =   [.up, .left].randomElement() ?? moveDirection
                 } else if (monster.y - latestPlayerPosition.y) < 0 && (monster.x - latestPlayerPosition.x) < 0 {
                     moveDirection =   [.down, .right].randomElement() ?? moveDirection
                 } else if (monster.y - latestPlayerPosition.y) < 0 && (monster.x - latestPlayerPosition.x) >= 0 {
-                    moveDirection =   [.down, .left].randomElement() ?? moveDirection
+                    moveDirection =  [.down, .left].randomElement() ?? moveDirection
                 }
             }
             
             movePieceInDirection(moveDirection, piece: monster)
         }
         
+        //If the monster shares the same grid ‘tile’ as the player, the game is over
         if monsterPositions.contains(where: { $0 == playerPositions[playerPositions.count - 1] }) {
             showResult = true
             isGameOver = true
@@ -139,6 +147,8 @@ final class GameViewModel: ObservableObject {
             // kill all duplicate monsters
             monsterPositions.forEach { aliveMonster in
                 if duplicates.contains(aliveMonster) {
+                    // If 2 or more monsters share the same grid space, all monsters fight between
+                    // themselves and all die
                     board[aliveMonster.x][aliveMonster.y].status = .dead
                 }
             }
@@ -174,11 +184,12 @@ final class GameViewModel: ObservableObject {
     
     private func placeComponentsOnboard() {
         
+        // The player starts at a random location in the top left 3x3 grid
         playerPositions.append(GameViewModel.randomPoint(from: (row: 3, column: 3),
                                                          within: (row: settings.gameWorldNumberOfRows, column: settings.gameWolrdNumberOfColumns),
                                                          on: .topLeft) ?? Point2D(x: 0, y: 0) )
         
-        
+        // The exit to the cave is in a random location at the bottom right 3x3 grid
         finishPosition = GameViewModel.randomPoint(from: (row: 3, column: 3),
                                                    within: (row: settings.gameWorldNumberOfRows, column: settings.gameWolrdNumberOfColumns),
                                                    on: .bottomRight) ?? Point2D(x: 0, y: 0)
@@ -204,6 +215,8 @@ final class GameViewModel: ObservableObject {
         var numberOfMonstersPlaced = 0
         while numberOfMonstersPlaced < settings.numberOfMonsters {
 
+            // Initial monster positions are random, but enough spread should be guaranteed
+            // (monsters shouldn't spawn too close to each other
             let randomRow = Int.random(in: 0..<settings.gameWorldNumberOfRows)
             let randomCol = Int.random(in: 0..<settings.gameWolrdNumberOfColumns)
             
@@ -334,7 +347,8 @@ final class GameViewModel: ObservableObject {
     }
     
     // MARK: A* Shortest path algorithm
-    
+    // Whenever the player moves, all the monsters will move in the closest direction of
+    // the player
     private func aStarShortestPath(from: Point2D, to: Point2D) -> [Point2D]? {
         
         var closedSteps = Set<AstarStep>()

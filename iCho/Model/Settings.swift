@@ -8,6 +8,12 @@
 import Foundation
 import SwiftUI
 
+/*
+ Number of monsters should be a fixed number based on difficulty +/- 10%:
+ • easy: 10 monsters
+ • medium: 20 monsters
+ • hard: 35 monsters
+ */
 class Settings: ObservableObject {
     @Published var gameWorldNumberOfRows = 15
     @Published var gameWolrdNumberOfColumns = 15

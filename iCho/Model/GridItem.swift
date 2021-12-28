@@ -13,8 +13,6 @@ class GridItem: ObservableObject {
     var column: Int
 
     @Published var status: Status
-    @Published var isOpened: Bool
-    @Published var isFlagged: Bool
 
     var image: String {
         switch status {
@@ -35,7 +33,5 @@ class GridItem: ObservableObject {
         self.row = row
         self.column = column
         self.status = .normal
-        self.isOpened = false
-        self.isFlagged = false
     }
 }
